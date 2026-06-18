@@ -4,6 +4,42 @@
   <title>Islanders Global</title>
   <script src="//unpkg.com/globe.gl"></script>
   <style>
+    #header {
+  position: absolute;
+  top: 40px;
+  left: 40px;
+  color: white;
+  z-index: 1000;
+}
+
+#header h1 {
+  margin: 0;
+  font-size: 48px;
+  letter-spacing: 3px;
+}
+
+#header p {
+  margin-top: 8px;
+  color: orange;
+  font-size: 18px;
+}
+
+#stats {
+  position: absolute;
+  top: 150px;
+  left: 40px;
+  color: white;
+  z-index: 1000;
+  background: rgba(0,0,0,.6);
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.15);
+}
+
+#stats div {
+  margin: 8px 0;
+  font-size: 18px;
+}
     body {
       margin: 0;
       background: black;
@@ -39,15 +75,42 @@
   opacity: 0.6;
   filter: blur(2px);
 }
-    #popup {
-      position: absolute;
-      top: 20px;
-      left: 20px;
-      background: orange;
-      padding: 15px;
-      display: none;
-      border-radius: 10px;
-    }
+  #popup {
+  position: fixed;
+  left: 40px;
+  bottom: 40px;
+  width: 320px;
+  background: rgba(15,15,15,.95);
+  color: white;
+  border: 2px solid orange;
+  border-radius: 16px;
+  overflow: hidden;
+  display: none;
+  z-index: 2000;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 0 25px rgba(255,140,0,.35);
+}
+
+#popup img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+}
+
+.popup-content {
+  padding: 15px;
+}
+
+.popup-user {
+  font-size: 20px;
+  font-weight: bold;
+  color: orange;
+}
+
+.popup-location {
+  margin-top: 8px;
+  color: #ccc;
+}
   </style>
 </head>
 
@@ -77,22 +140,41 @@ const locations = [
     photo: "https://www.dailyfaceoff.com/_next/image?url=https%3A%2F%2Fpublish.dailyfaceoff.com%2Fwp-content%2Fuploads%2F2025%2F06%2FSE5_3128-scaled.jpg&w=3840&q=75"
   }
 ];
+  document.getElementById("locationCount").textContent = locations.length;
+
+const countries = new Set(
+  locations.map(location => {
+    return location.date.split(",")[1]?.trim() || "";
+  })
+);
+
+document.getElementById("countryCount").textContent = countries.size;
 
 const globe = Globe()
   (document.getElementById('globe'))
   .globeImageUrl('//unpkg.com/three-globe/example/img/earth-dark.jpg')
   .backgroundColor('black')
-  .pointsData(locations)
-  .pointLat('lat')
-  .pointLng('lng')
-  .pointColor(() => 'orange')
-  .pointAltitude(0.02)
+ .pointsData(locations)
+.pointLat('lat')
+.pointLng('lng')
+.pointColor(() => '#ff7b00')
+.pointAltitude(0.02)
+
+.ringsData(locations)
+.ringLat('lat')
+.ringLng('lng')
+.ringColor(() => ['orange'])
+.ringMaxRadius(3)
+.ringPropagationSpeed(2)
+.ringRepeatPeriod(1000)
   .onPointClick(point => {
-    document.getElementById("popup").innerHTML = `
-      <img src="${point.photo}" width="200"><br>
-      <strong>@${point.username}</strong><br>
-      ${point.date}
-    `;
+   document.getElementById("popup").innerHTML = `
+  <img src="${point.photo}">
+  <div class="popup-content">
+    <div class="popup-user">@${point.username}</div>
+    <div class="popup-location">${point.date}</div>
+  </div>
+`;
     document.getElementById("popup").style.display = "block";
 
     globe.pointOfView(
