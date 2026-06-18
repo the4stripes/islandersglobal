@@ -61,6 +61,22 @@
       font-size: 18px;
     }
 
+    #logo {
+      position: absolute;
+      top: 15px;
+      right: 10px;
+      width: 220px;
+      height: auto;
+      cursor: pointer;
+      transition: opacity 0.3s ease, filter 0.3s ease;
+      z-index: 10;
+    }
+
+    #logo:hover {
+      opacity: 0.6;
+      filter: blur(2px);
+    }
+
     #submitButton {
       position: fixed;
       right: 24px;
@@ -201,6 +217,8 @@
     <p>Repping the Isles Worldwide</p>
   </header>
 
+  <img id="logo" src="logo" alt="Islanders Global logo">
+
   <section id="stats" aria-label="Fan stats">
     <div>Countries Repped: <span id="countryCount">0</span></div>
     <div>Fan Locations: <span id="locationCount">0</span></div>
@@ -208,7 +226,7 @@
 
   <a
     id="submitButton"
-    href="https://forms.gle/eCSmtH5WxMiZtdSZ7"
+    href="https://forms.gle/NC5ZHhqfcBA8wnoNA"
     target="_blank"
     rel="noopener noreferrer"
     title="Submit Photo"
