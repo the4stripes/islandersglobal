@@ -3,42 +3,7 @@
 <head>
   <title>Islanders Global</title>
   <script src="//unpkg.com/globe.gl"></script>
-  #submitButton {
-  position: fixed;
-  right: 30px;
-  bottom: 30px;
-  padding: 15px 25px;
-  background: orange;
-  color: black;
-  text-decoration: none;
-  font-weight: bold;
-  border-radius: 50px;
-  filter: blur(2px);
-  transition: .3s;
-  z-index: 2000;
-}
 
-#submitButton:hover {
-  filter: blur(0);
-  transform: translateY(-4px);
-}
-
-#imageViewer {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.8);
-  backdrop-filter: blur(10px);
-  display: none;
-  justify-content: center;
-  align-items: center;
-  z-index: 5000;
-}
-
-#fullImage {
-  max-width: 85%;
-  max-height: 85%;
-  border-radius: 20px;
-}
   <style>
     #header {
   position: absolute;
@@ -175,25 +140,7 @@
   href="YOUR_GOOGLE_FORM_LINK"
   target="_blank"
 >
-  setTimeout(() => {
-  const popupImg = document.querySelector('#popup img');
-
-  if (popupImg) {
-    popupImg.onclick = () => {
-      document.getElementById('fullImage').src =
-        popupImg.src;
-
-      document.getElementById('imageViewer').style.display =
-        'flex';
-    };
-  }
-}, 50);
-  document
-  .getElementById('imageViewer')
-  .addEventListener('click', () => {
-    document.getElementById('imageViewer').style.display =
-      'none';
-  });
+ 
 <body>
   
 <img id="logo" src="logo">
