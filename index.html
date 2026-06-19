@@ -121,6 +121,13 @@
       font-size: 13px;
     }
 
+    #subdivisionStatus {
+      min-height: 14px;
+      margin-top: 8px;
+      color: rgba(255, 255, 255, 0.68);
+      font-size: 12px;
+    }
+
     .country-bar {
       height: 8px;
       margin-top: 10px;
@@ -368,6 +375,11 @@
         font-size: 11px;
       }
 
+      #subdivisionStatus {
+        margin-top: 6px;
+        font-size: 10px;
+      }
+
       .country-bar {
         height: 6px;
         margin-top: 7px;
@@ -449,6 +461,7 @@
     <div class="country-bar" aria-hidden="true">
       <span id="countryBarFill"></span>
     </div>
+    <div id="subdivisionStatus"></div>
   </section>
 
   <a
@@ -471,6 +484,8 @@
   <script>
     const WORLD_GEOJSON_URL = "https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json";
     const COUNTRY_LIST_URL = "https://cdn.jsdelivr.net/npm/world-countries@5/countries.json";
+    const US_STATES_GEOJSON_URL = "https://cdn.jsdelivr.net/gh/codeforamerica/click_that_hood@master/public/data/united-states.geojson";
+    const CANADA_SUBDIVISIONS_GEOJSON_URL = "https://cdn.jsdelivr.net/gh/codeforamerica/click_that_hood@master/public/data/canada.geojson";
     const MOBILE_POINT_TAP_RADIUS_DEGREES = 5;
 
     const locations = [
@@ -492,9 +507,16 @@
     const selectedCountryName = document.getElementById("selectedCountryName");
     const selectedCountryCount = document.getElementById("selectedCountryCount");
     const countryBarFill = document.getElementById("countryBarFill");
+    const subdivisionStatus = document.getElementById("subdivisionStatus");
 
     let hoveredCountry = null;
+    let hoveredSubdivision = null;
+    let selectedCountryKey = "";
+    let baseCountryFeatures = [];
+    let selectedSubdivisionFeatures = [];
+    let countryFeatureLookup = new Map();
     let countryOptions = [];
+    const subdivisionCache = new Map();
     let ignoreNextDocumentClick = false;
 
     const closePopup = () => {
@@ -511,6 +533,13 @@
       "russian federation": "russia",
       "south korea": "korea, republic of",
       "north korea": "korea, democratic people's republic of",
+      "gaza": "palestine",
+      "gaza strip": "palestine",
+      "palestinian territories": "palestine",
+      "palestinian territory": "palestine",
+      "state of palestine": "palestine",
+      "west bank": "palestine",
+      "west bank and gaza": "palestine",
       "syrian arab republic": "syria",
       "turkiye": "turkey",
       "united republic of tanzania": "tanzania",
@@ -555,6 +584,26 @@
       return counts;
     }, new Map());
 
+    const getLocationSubdivision = location =>
+      location.subdivision ||
+      location.state ||
+      location.province ||
+      location.territory ||
+      location.region ||
+      "";
+
+    const subdivisionCounts = locations.reduce((counts, location) => {
+      const locationCountryKey = countryKey(getLocationCountry(location));
+      const subdivision = getLocationSubdivision(location);
+
+      if ((locationCountryKey === "united states" || locationCountryKey === "canada") && subdivision) {
+        const key = `${locationCountryKey}|${countryKey(subdivision)}`;
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+
+      return counts;
+    }, new Map());
+
     const maxCountrySubmissions = Math.max(1, ...countryCounts.values());
 
     document.getElementById("locationCount").textContent = locations.length;
@@ -580,6 +629,13 @@
       .ringMaxRadius(3)
       .ringPropagationSpeed(2)
       .ringRepeatPeriod(1000)
+      .pathsData([])
+      .pathPoints("points")
+      .pathPointLat(point => point.lat)
+      .pathPointLng(point => point.lng)
+      .pathPointAlt(() => 0.08)
+      .pathColor(path => path.color)
+      .pathStroke(path => path.stroke)
       .onPointClick(point => {
         openLocationCard(point);
       })
@@ -647,6 +703,16 @@
         "";
     }
 
+    function getSubdivisionName(feature) {
+      return feature.properties?.__subdivisionName ||
+        feature.properties?.name ||
+        feature.properties?.NAME ||
+        feature.properties?.NAME_1 ||
+        feature.properties?.province ||
+        feature.properties?.territory ||
+        "";
+    }
+
     function isSearchableCountry(country) {
       return country.unMember ||
         country.cca2 === "VA" ||
@@ -664,6 +730,10 @@
 
     function getCountryCount(name) {
       return countryCounts.get(countryKey(name)) || 0;
+    }
+
+    function getSubdivisionCount(countryKeyValue, subdivisionName) {
+      return subdivisionCounts.get(`${countryKeyValue}|${countryKey(subdivisionName)}`) || 0;
     }
 
     function pluralizeSubmission(count) {
@@ -686,17 +756,53 @@
       `;
     }
 
+    function subdivisionTooltip(feature) {
+      const subdivisionName = getSubdivisionName(feature);
+      const countryKeyValue = feature.properties?.__countryKey || "";
+
+      if (!subdivisionName || !countryKeyValue) {
+        return "";
+      }
+
+      const count = getSubdivisionCount(countryKeyValue, subdivisionName);
+
+      return `
+        <div style="padding: 8px 10px; color: white; background: rgba(0, 0, 0, 0.84); border: 1px solid rgb(135, 225, 255); border-radius: 8px;">
+          <strong style="color: rgb(135, 225, 255);">${subdivisionName}</strong><br>
+          ${pluralizeSubmission(count)}
+        </div>
+      `;
+    }
+
     function countryAltitude(feature) {
       if (!feature) {
         return 0.004;
       }
 
-      return feature === hoveredCountry ? 0.05 : 0.006;
+      if (feature.properties?.__layer === "subdivision") {
+        return 0.085;
+      }
+
+      const key = countryKey(getFeatureName(feature));
+
+      return feature === hoveredCountry || key === selectedCountryKey ? 0.05 : 0.006;
     }
 
     function countryCapColor(feature) {
       if (!feature) {
         return "rgba(255, 255, 255, 0)";
+      }
+
+      if (feature.properties?.__layer === "subdivision") {
+        return feature === hoveredSubdivision
+          ? "rgba(135, 225, 255, 0.2)"
+          : "rgba(135, 225, 255, 0.018)";
+      }
+
+      const key = countryKey(getFeatureName(feature));
+
+      if (key === selectedCountryKey) {
+        return "rgba(0, 150, 255, 0.26)";
       }
 
       if (feature === hoveredCountry) {
@@ -712,6 +818,10 @@
       globe
         .polygonAltitude(countryAltitude)
         .polygonCapColor(countryCapColor);
+    }
+
+    function updatePolygonData() {
+      globe.polygonsData([...baseCountryFeatures, ...selectedSubdivisionFeatures]);
     }
 
     async function loadCountries() {
@@ -734,17 +844,41 @@
         );
         const countryFeatures = (world.features || [])
           .filter(feature => allowedCountryKeys.has(countryKey(getFeatureName(feature))));
+        baseCountryFeatures = countryFeatures;
+        countryFeatureLookup = new Map(
+          countryFeatures.map(feature => [countryKey(getFeatureName(feature)), feature])
+        );
 
         globe
-          .polygonsData(countryFeatures)
+          .polygonsData([...baseCountryFeatures, ...selectedSubdivisionFeatures])
           .polygonAltitude(countryAltitude)
           .polygonCapColor(countryCapColor)
-          .polygonSideColor(() => "rgba(255, 140, 0, 0.08)")
-          .polygonStrokeColor(() => "rgba(255, 255, 255, 0.42)")
-          .polygonLabel(countryTooltip)
+          .polygonSideColor(feature =>
+            feature.properties?.__layer === "subdivision"
+              ? "rgba(135, 225, 255, 0.08)"
+              : "rgba(255, 140, 0, 0.08)"
+          )
+          .polygonStrokeColor(feature =>
+            feature.properties?.__layer === "subdivision"
+              ? "rgba(135, 225, 255, 0.95)"
+              : "rgba(255, 255, 255, 0.42)"
+          )
+          .polygonLabel(feature =>
+            feature.properties?.__layer === "subdivision"
+              ? subdivisionTooltip(feature)
+              : countryTooltip(feature)
+          )
           .onPolygonHover(feature => {
-            hoveredCountry = feature && getFeatureName(feature) ? feature : null;
+            hoveredSubdivision = feature?.properties?.__layer === "subdivision" ? feature : null;
+            hoveredCountry = feature && feature.properties?.__layer !== "subdivision" && getFeatureName(feature)
+              ? feature
+              : null;
             refreshCountryHover();
+          })
+          .onPolygonClick(feature => {
+            if (feature?.properties?.__layer !== "subdivision") {
+              selectCountry(findCountry(getFeatureName(feature)));
+            }
           });
 
         buildCountrySearch(countries, countryFeatures);
@@ -832,22 +966,135 @@
         countryOptions.find(country => country.name.toLowerCase().startsWith(query.toLowerCase().trim()));
     }
 
+    const subdivisionDatasets = {
+      "united states": {
+        url: US_STATES_GEOJSON_URL,
+        color: "rgba(135, 225, 255, 1)"
+      },
+      "canada": {
+        url: CANADA_SUBDIVISIONS_GEOJSON_URL,
+        color: "rgba(135, 225, 255, 1)"
+      }
+    };
+
+    async function showSubdivisionBorders(countryKeyValue) {
+      const dataset = subdivisionDatasets[countryKeyValue];
+
+      if (!dataset) {
+        globe.pathsData([]);
+        selectedSubdivisionFeatures = [];
+        updatePolygonData();
+        subdivisionStatus.textContent = "";
+        return;
+      }
+
+      subdivisionStatus.textContent = "Loading regional borders...";
+
+      if (!subdivisionCache.has(countryKeyValue)) {
+        const response = await fetch(dataset.url);
+
+        if (!response.ok) {
+          throw new Error("Subdivision data did not load.");
+        }
+
+        const geojson = await response.json();
+        subdivisionCache.set(countryKeyValue, {
+          paths: extractGeoJsonPaths(geojson, dataset.color, countryKeyValue),
+          features: extractSubdivisionFeatures(geojson, countryKeyValue)
+        });
+      }
+
+      const subdivisionData = subdivisionCache.get(countryKeyValue);
+      selectedSubdivisionFeatures = subdivisionData.features;
+      updatePolygonData();
+      globe.pathsData(subdivisionData.paths);
+      subdivisionStatus.textContent = countryKeyValue === "united states"
+        ? "State borders shown"
+        : "Province and territory borders shown";
+    }
+
+    function extractGeoJsonPaths(geojson, color, countryKeyValue) {
+      return (geojson.features || [])
+        .flatMap(feature => geometryToPaths(feature.geometry, color, countryKeyValue, getSubdivisionName(feature)))
+        .filter(path => path.points.length > 1);
+    }
+
+    function geometryToPaths(geometry, color, countryKeyValue, subdivisionName) {
+      if (!geometry) {
+        return [];
+      }
+
+      if (geometry.type === "Polygon") {
+        return geometry.coordinates.map(ring => ringToPath(ring, color, countryKeyValue, subdivisionName));
+      }
+
+      if (geometry.type === "MultiPolygon") {
+        return geometry.coordinates.flatMap(polygon =>
+          polygon.map(ring => ringToPath(ring, color, countryKeyValue, subdivisionName))
+        );
+      }
+
+      return [];
+    }
+
+    function ringToPath(ring, color, countryKeyValue, subdivisionName) {
+      return {
+        color,
+        countryKey: countryKeyValue,
+        name: subdivisionName,
+        stroke: isMobile() ? 1.35 : 1,
+        points: ring.map(([lng, lat]) => ({ lat, lng }))
+      };
+    }
+
+    function extractSubdivisionFeatures(geojson, countryKeyValue) {
+      return (geojson.features || [])
+        .map(feature => {
+          const subdivisionName = getSubdivisionName(feature);
+
+          return {
+            ...feature,
+            properties: {
+              ...(feature.properties || {}),
+              __layer: "subdivision",
+              __countryKey: countryKeyValue,
+              __subdivisionName: subdivisionName
+            }
+          };
+        })
+        .filter(feature => getSubdivisionName(feature));
+    }
+
     function selectCountry(country) {
       if (!country) {
         selectedCountryName.textContent = "Country not found";
         selectedCountryCount.textContent = "";
         countryBarFill.style.width = "0%";
-        return;
+      selectedCountryKey = "";
+      globe.pathsData([]);
+      selectedSubdivisionFeatures = [];
+      updatePolygonData();
+      subdivisionStatus.textContent = "";
+      refreshCountryHover();
+      return;
       }
 
       const count = countryCounts.get(country.key) || 0;
       const barWidth = Math.round((count / maxCountrySubmissions) * 100);
 
+      selectedCountryKey = country.key;
       selectedCountryName.textContent = country.name;
       selectedCountryCount.textContent = pluralizeSubmission(count);
       countryBarFill.style.width = `${barWidth}%`;
       countrySearch.value = country.name;
       closePopup();
+      refreshCountryHover();
+      showSubdivisionBorders(country.key).catch(() => {
+        globe.pathsData([]);
+        selectedSubdivisionFeatures = [];
+        updatePolygonData();
+        subdivisionStatus.textContent = "Regional borders unavailable";
+      });
 
       globe.pointOfView(
         { lat: country.lat, lng: country.lng, altitude: isMobile() ? 2.35 : 1.75 },
@@ -890,3 +1137,4 @@
   </script>
 </body>
 </html>
+
