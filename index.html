@@ -178,18 +178,45 @@
 
     @media (max-width: 700px) {
       #header {
-        top: 24px;
+        top: max(22px, env(safe-area-inset-top));
         left: 20px;
-        right: 20px;
+        right: 150px;
       }
 
       #header h1 {
-        font-size: 32px;
+        font-size: 29px;
+        line-height: 1.08;
+        letter-spacing: 4px;
+      }
+
+      #header p {
+        margin-top: 10px;
+        width: max-content;
+        max-width: calc(100vw - 40px);
+        font-size: 18px;
+        line-height: 1.25;
+      }
+
+      #logo {
+        top: max(24px, env(safe-area-inset-top));
+        right: 16px;
+        width: 124px;
       }
 
       #stats {
-        top: 120px;
+        top: 162px;
         left: 20px;
+        right: 20px;
+        width: auto;
+        max-width: 330px;
+        padding: 13px 15px;
+        border-radius: 12px;
+      }
+
+      #stats div {
+        margin: 7px 0;
+        font-size: 18px;
+        line-height: 1.25;
       }
 
       #popup {
@@ -204,6 +231,30 @@
         bottom: 18px;
         width: 68px;
         height: 68px;
+      }
+    }
+
+    @media (max-width: 390px) {
+      #header {
+        right: 132px;
+      }
+
+      #header h1 {
+        font-size: 25px;
+        letter-spacing: 3px;
+      }
+
+      #header p,
+      #stats div {
+        font-size: 16px;
+      }
+
+      #logo {
+        width: 112px;
+      }
+
+      #stats {
+        top: 148px;
       }
     }
   </style>
@@ -226,7 +277,7 @@
 
   <a
     id="submitButton"
-    href="https://forms.gle/NC5ZHhqfcBA8wnoNA"
+    href="YOUR_GOOGLE_FORM_LINK"
     target="_blank"
     rel="noopener noreferrer"
     title="Submit Photo"
@@ -265,6 +316,8 @@
     );
 
     document.getElementById("countryCount").textContent = countries.size;
+
+    const isMobile = () => window.innerWidth <= 700;
 
     const globe = Globe()(document.getElementById("globe"))
       .width(window.innerWidth)
@@ -308,7 +361,7 @@
         );
       });
 
-    globe.pointOfView({ lat: 30, lng: 0, altitude: 2.2 }, 0);
+    globe.pointOfView({ lat: 22, lng: 0, altitude: isMobile() ? 2.8 : 2.2 }, 0);
 
     window.addEventListener("resize", () => {
       globe.width(window.innerWidth).height(window.innerHeight);
