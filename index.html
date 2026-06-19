@@ -204,26 +204,61 @@
       }
 
       #stats {
-        top: 162px;
-        left: 20px;
-        right: 20px;
+        position: fixed;
+        top: auto;
+        left: auto;
+        right: 18px;
+        bottom: 100px;
         width: auto;
-        max-width: 330px;
-        padding: 13px 15px;
-        border-radius: 12px;
+        max-width: 175px;
+        padding: 9px 11px;
+        border-radius: 999px;
+        text-align: right;
+        background: rgba(0, 0, 0, 0.72);
+        box-shadow: 0 0 16px rgba(255, 140, 0, 0.18);
       }
 
       #stats div {
-        margin: 7px 0;
-        font-size: 18px;
-        line-height: 1.25;
+        margin: 2px 0;
+        font-size: 12px;
+        line-height: 1.15;
+        white-space: nowrap;
       }
 
       #popup {
-        left: 20px;
-        right: 20px;
-        bottom: 120px;
+        left: 16px;
+        right: 16px;
+        bottom: 96px;
         width: auto;
+        min-height: 104px;
+        border-radius: 18px;
+      }
+
+      #popup img {
+        float: left;
+        width: 104px;
+        height: 104px;
+      }
+
+      .popup-content {
+        min-height: 104px;
+        padding: 15px 16px 13px 122px;
+      }
+
+      .popup-user {
+        font-size: 21px;
+        line-height: 1.1;
+      }
+
+      .popup-location {
+        margin-top: 8px;
+        font-size: 15px;
+        line-height: 1.25;
+      }
+
+      body.popup-open #stats {
+        opacity: 0;
+        pointer-events: none;
       }
 
       #submitButton {
@@ -249,12 +284,17 @@
         font-size: 16px;
       }
 
+      #stats div {
+        font-size: 11px;
+      }
+
       #logo {
         width: 112px;
       }
 
       #stats {
-        top: 148px;
+        right: 16px;
+        bottom: 92px;
       }
     }
   </style>
@@ -307,6 +347,11 @@
     const imageViewer = document.getElementById("imageViewer");
     const fullImage = document.getElementById("fullImage");
 
+    const closePopup = () => {
+      popup.style.display = "none";
+      document.body.classList.remove("popup-open");
+    };
+
     document.getElementById("locationCount").textContent = locations.length;
 
     const countries = new Set(
@@ -347,6 +392,7 @@
         `;
 
         popup.style.display = "block";
+        document.body.classList.add("popup-open");
 
         const popupImg = popup.querySelector("img");
         popupImg.addEventListener("click", () => {
@@ -356,8 +402,8 @@
         });
 
         globe.pointOfView(
-          { lat: point.lat, lng: point.lng, altitude: 1.5 },
-          1000
+          { lat: point.lat, lng: point.lng, altitude: isMobile() ? 2.25 : 1.5 },
+          isMobile() ? 650 : 1000
         );
       });
 
@@ -372,7 +418,7 @@
       const clickedCanvas = event.target.closest("canvas");
 
       if (!clickedPopup && !clickedCanvas) {
-        popup.style.display = "none";
+        closePopup();
       }
     });
 
