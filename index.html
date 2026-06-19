@@ -428,17 +428,17 @@
   <img id="logo" src="logo" alt="Islanders Global logo">
 
   <section id="stats" aria-label="Fan stats">
-    <div>Countries Repped: <span id="countryCount">0</span></div>
+    <div>Countries/Territories Repped: <span id="countryCount">0</span></div>
     <div>Fan Locations: <span id="locationCount">0</span></div>
   </section>
 
   <section id="countryPanel" aria-label="Country search">
-    <label class="sr-only" for="countrySearch">Search country</label>
+    <label class="sr-only" for="countrySearch">Search country or territory</label>
     <input
       id="countrySearch"
       type="search"
       list="countryList"
-      placeholder="Search country"
+      placeholder="Search country or territory"
       autocomplete="off"
     >
     <datalist id="countryList"></datalist>
@@ -648,7 +648,10 @@
     }
 
     function isSearchableCountry(country) {
-      return country.unMember || country.cca2 === "VA" || country.cca2 === "PS";
+      return country.unMember ||
+        country.cca2 === "VA" ||
+        country.cca2 === "PS" ||
+        country.cca2 === "GL";
     }
 
     function getCountryNameKeys(country) {
