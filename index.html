@@ -647,6 +647,18 @@
         "";
     }
 
+    function isSearchableCountry(country) {
+      return country.unMember || country.cca2 === "VA" || country.cca2 === "PS";
+    }
+
+    function getCountryNameKeys(country) {
+      return [
+        country.name.common,
+        country.name.official,
+        ...(country.altSpellings || [])
+      ].map(countryKey);
+    }
+
     function getCountryCount(name) {
       return countryCounts.get(countryKey(name)) || 0;
     }
@@ -656,6 +668,10 @@
     }
 
     function countryTooltip(feature) {
+      if (!feature || !getFeatureName(feature)) {
+        return "";
+      }
+
       const name = getFeatureName(feature);
       const count = getCountryCount(name);
 
@@ -668,12 +684,20 @@
     }
 
     function countryAltitude(feature) {
+      if (!feature) {
+        return 0.004;
+      }
+
       return feature === hoveredCountry ? 0.05 : 0.006;
     }
 
     function countryCapColor(feature) {
+      if (!feature) {
+        return "rgba(255, 255, 255, 0)";
+      }
+
       if (feature === hoveredCountry) {
-        return "rgba(255, 123, 0, 0.46)";
+        return "rgba(255, 123, 0, 0.34)";
       }
 
       return getCountryCount(getFeatureName(feature)) > 0
@@ -700,7 +724,13 @@
 
         const world = await geoResponse.json();
         const countries = await countryResponse.json();
-        const countryFeatures = world.features || [];
+        const allowedCountryKeys = new Set(
+          countries
+            .filter(isSearchableCountry)
+            .flatMap(getCountryNameKeys)
+        );
+        const countryFeatures = (world.features || [])
+          .filter(feature => allowedCountryKeys.has(countryKey(getFeatureName(feature))));
 
         globe
           .polygonsData(countryFeatures)
@@ -710,7 +740,7 @@
           .polygonStrokeColor(() => "rgba(255, 255, 255, 0.42)")
           .polygonLabel(countryTooltip)
           .onPolygonHover(feature => {
-            hoveredCountry = feature;
+            hoveredCountry = feature && getFeatureName(feature) ? feature : null;
             refreshCountryHover();
           });
 
@@ -730,7 +760,7 @@
       );
 
       countryOptions = countries
-        .filter(country => country.unMember || country.cca2 === "VA" || country.cca2 === "PS")
+        .filter(isSearchableCountry)
         .map(country => {
           const name = country.name.common;
           const key = countryKey(name);
@@ -744,11 +774,7 @@
             key,
             lat: center.lat,
             lng: center.lng,
-            aliases: [
-              name,
-              country.name.official,
-              ...(country.altSpellings || [])
-            ].map(countryKey)
+            aliases: getCountryNameKeys(country)
           };
         })
         .filter(country => Number.isFinite(country.lat) && Number.isFinite(country.lng))
@@ -861,4 +887,3 @@
   </script>
 </body>
 </html>
-
