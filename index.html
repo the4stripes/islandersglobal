@@ -208,7 +208,7 @@
         top: auto;
         left: auto;
         right: 18px;
-        bottom: 100px;
+        bottom: 126px;
         width: auto;
         max-width: 175px;
         padding: 9px 11px;
@@ -230,19 +230,23 @@
         right: 16px;
         bottom: 96px;
         width: auto;
-        min-height: 104px;
+        height: 164px;
         border-radius: 18px;
       }
 
       #popup img {
         float: left;
-        width: 104px;
-        height: 104px;
+        width: 38%;
+        height: 100%;
+        object-fit: cover;
+        object-position: center;
+        border-right: 2px solid orange;
       }
 
       .popup-content {
-        min-height: 104px;
-        padding: 15px 16px 13px 122px;
+        min-height: 100%;
+        padding: 26px 18px 18px calc(38% + 18px);
+        box-sizing: border-box;
       }
 
       .popup-user {
@@ -294,7 +298,7 @@
 
       #stats {
         right: 16px;
-        bottom: 92px;
+        bottom: 118px;
       }
     }
   </style>
@@ -346,6 +350,7 @@
     const popup = document.getElementById("popup");
     const imageViewer = document.getElementById("imageViewer");
     const fullImage = document.getElementById("fullImage");
+    let ignoreNextDocumentClick = false;
 
     const closePopup = () => {
       popup.style.display = "none";
@@ -383,6 +388,31 @@
       .ringPropagationSpeed(2)
       .ringRepeatPeriod(1000)
       .onPointClick(point => {
+        openLocationCard(point);
+      })
+      .onGlobeClick(coords => {
+        if (!isMobile()) {
+          return;
+        }
+
+        const closestPoint = locations
+          .map(location => ({
+            location,
+            distance: Math.hypot(location.lat - coords.lat, location.lng - coords.lng)
+          }))
+          .sort((a, b) => a.distance - b.distance)[0];
+
+        if (closestPoint && closestPoint.distance < 7) {
+          openLocationCard(closestPoint.location);
+        }
+      });
+
+    function openLocationCard(point) {
+        ignoreNextDocumentClick = true;
+        setTimeout(() => {
+          ignoreNextDocumentClick = false;
+        }, 0);
+
         popup.innerHTML = `
           <img src="${point.photo}" alt="Photo from ${point.date}">
           <div class="popup-content">
@@ -405,7 +435,7 @@
           { lat: point.lat, lng: point.lng, altitude: isMobile() ? 2.25 : 1.5 },
           isMobile() ? 650 : 1000
         );
-      });
+    }
 
     globe.pointOfView({ lat: 22, lng: 0, altitude: isMobile() ? 2.8 : 2.2 }, 0);
 
@@ -415,11 +445,12 @@
 
     document.addEventListener("click", event => {
       const clickedPopup = popup.contains(event.target);
-      const clickedCanvas = event.target.closest("canvas");
 
-      if (!clickedPopup && !clickedCanvas) {
-        closePopup();
+      if (clickedPopup || ignoreNextDocumentClick) {
+        return;
       }
+
+      closePopup();
     });
 
     imageViewer.addEventListener("click", () => {
