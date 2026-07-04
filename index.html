@@ -486,6 +486,26 @@
     const COUNTRY_LIST_URL = "https://cdn.jsdelivr.net/npm/world-countries@5/countries.json";
     const US_STATES_GEOJSON_URL = "https://cdn.jsdelivr.net/gh/codeforamerica/click_that_hood@master/public/data/united-states.geojson";
     const CANADA_SUBDIVISIONS_GEOJSON_URL = "https://cdn.jsdelivr.net/gh/codeforamerica/click_that_hood@master/public/data/canada.geojson";
+    const SUPPLEMENTAL_BOUNDARIES = [
+      {
+        key: "french guiana",
+        name: "French Guiana",
+        replaceExisting: false,
+        url: "https://cdn.jsdelivr.net/gh/wmgeolab/geoBoundaries@main/releaseData/gbOpen/GUF/ADM0/geoBoundaries-GUF-ADM0_simplified.geojson"
+      },
+      {
+        key: "guinea-bissau",
+        name: "Guinea-Bissau",
+        replaceExisting: false,
+        url: "https://cdn.jsdelivr.net/gh/wmgeolab/geoBoundaries@main/releaseData/gbOpen/GNB/ADM0/geoBoundaries-GNB-ADM0_simplified.geojson"
+      },
+      {
+        key: "somalia",
+        name: "Somalia",
+        replaceExisting: true,
+        url: "https://cdn.jsdelivr.net/gh/wmgeolab/geoBoundaries@main/releaseData/gbOpen/SOM/ADM0/geoBoundaries-SOM-ADM0_simplified.geojson"
+      }
+    ];
     const MOBILE_POINT_TAP_RADIUS_DEGREES = 5;
     const MANUAL_PLACES = [
       {
@@ -769,7 +789,8 @@
     }
 
     function getFeatureName(feature) {
-      return feature.properties?.name ||
+      return feature.properties?.__countryName ||
+        feature.properties?.name ||
         feature.properties?.ADMIN ||
         feature.properties?.NAME ||
         "";
@@ -890,7 +911,7 @@
         return 0.085;
       }
 
-      const key = countryKey(getFeatureName(feature));
+      const key = feature.properties?.__countryKey || countryKey(getFeatureName(feature));
 
       return feature === hoveredCountry || key === selectedCountryKey ? 0.05 : 0.006;
     }
@@ -906,7 +927,7 @@
           : "rgba(135, 225, 255, 0.018)";
       }
 
-      const key = countryKey(getFeatureName(feature));
+      const key = feature.properties?.__countryKey || countryKey(getFeatureName(feature));
 
       if (key === selectedCountryKey) {
         return "rgba(0, 150, 255, 0.26)";
@@ -952,8 +973,18 @@
             ...MANUAL_PLACES.flatMap(place => place.aliases)
           ]
         );
-        const countryFeatures = (world.features || [])
+        const mainCountryFeatures = (world.features || [])
           .filter(feature => allowedCountryKeys.has(countryKey(getFeatureName(feature))));
+        const supplementalFeatures = await loadSupplementalBoundaries();
+        const replacedKeys = new Set(
+          SUPPLEMENTAL_BOUNDARIES
+            .filter(boundary => boundary.replaceExisting)
+            .map(boundary => boundary.key)
+        );
+        const countryFeatures = [
+          ...mainCountryFeatures.filter(feature => !replacedKeys.has(countryKey(getFeatureName(feature)))),
+          ...supplementalFeatures
+        ];
         baseCountryFeatures = countryFeatures;
         countryFeatureLookup = new Map(
           countryFeatures.map(feature => [countryKey(getFeatureName(feature)), feature])
@@ -996,6 +1027,31 @@
         selectedCountryName.textContent = "Country search unavailable";
         selectedCountryCount.textContent = "";
       }
+    }
+
+    async function loadSupplementalBoundaries() {
+      const results = await Promise.allSettled(
+        SUPPLEMENTAL_BOUNDARIES.map(async boundary => {
+          const response = await fetch(boundary.url);
+
+          if (!response.ok) {
+            throw new Error(`${boundary.name} boundary did not load.`);
+          }
+
+          const geojson = await response.json();
+
+          return (geojson.features || []).map(feature => ({
+            ...feature,
+            properties: {
+              ...(feature.properties || {}),
+              __countryKey: boundary.key,
+              __countryName: boundary.name
+            }
+          }));
+        })
+      );
+
+      return results.flatMap(result => result.status === "fulfilled" ? result.value : []);
     }
 
     function buildCountrySearch(countries, countryFeatures) {
@@ -1248,3 +1304,4 @@
   </script>
 </body>
 </html>
+
