@@ -578,6 +578,7 @@
     const subdivisionCache = new Map();
     let clusteringUpdateFrame = null;
     let ignoreNextDocumentClick = false;
+    let lastPolygonClickTime = 0;
 
     const closePopup = () => {
       popup.style.display = "none";
@@ -773,7 +774,13 @@
         handlePointClick(point);
       })
       .onGlobeClick(coords => {
-        handleNearbyPointClick(coords);
+        if (Date.now() - lastPolygonClickTime < 120) {
+          return;
+        }
+
+        if (!handleNearbyPointClick(coords)) {
+          clearCountrySelection();
+        }
       });
 
     globe.controls().addEventListener("change", schedulePointClusteringUpdate);
@@ -1402,6 +1409,8 @@
             refreshCountryHover();
           })
           .onPolygonClick((feature, event, coords) => {
+            lastPolygonClickTime = Date.now();
+
             if (handleNearbyPointClick(coords)) {
               return;
             }
@@ -1625,18 +1634,35 @@
         .filter(feature => getSubdivisionName(feature));
     }
 
-    function selectCountry(country) {
-      if (!country) {
-        selectedCountryName.textContent = "Country not found";
-        selectedCountryCount.textContent = "";
-        countryBarFill.style.width = "0%";
+    function clearCountrySelection() {
+      if (!selectedCountryKey) {
+        return;
+      }
+
       selectedCountryKey = "";
+      selectedCountryName.textContent = "Select a country";
+      selectedCountryCount.textContent = "0 submissions";
+      countryBarFill.style.width = "0%";
+      countrySearch.value = "";
       globe.pathsData([]);
       selectedSubdivisionFeatures = [];
       updatePolygonData();
       subdivisionStatus.textContent = "";
       refreshCountryHover();
-      return;
+    }
+
+    function selectCountry(country) {
+      if (!country) {
+        selectedCountryName.textContent = "Country not found";
+        selectedCountryCount.textContent = "";
+        countryBarFill.style.width = "0%";
+        selectedCountryKey = "";
+        globe.pathsData([]);
+        selectedSubdivisionFeatures = [];
+        updatePolygonData();
+        subdivisionStatus.textContent = "";
+        refreshCountryHover();
+        return;
       }
 
       const count = countryCounts.get(country.key) || 0;
@@ -1696,4 +1722,4 @@
     });
   </script>
 </body>
-</html> 
+</html>
