@@ -507,6 +507,9 @@
       }
     ];
     const MOBILE_POINT_TAP_RADIUS_DEGREES = 5;
+    const CLUSTER_ZOOM_ALTITUDE = 1.75;
+    const MIN_POINT_RADIUS = 0.16;
+    const MAX_POINT_RADIUS = 0.55;
     const MANUAL_PLACES = [
       {
         name: "French Guiana",
@@ -553,6 +556,7 @@
     let countryFeatureLookup = new Map();
     let countryOptions = [];
     const subdivisionCache = new Map();
+    let clusteringUpdateFrame = null;
     let ignoreNextDocumentClick = false;
 
     const closePopup = () => {
@@ -696,6 +700,8 @@
       return counts;
     }, new Map());
 
+    const clusteredLocations = buildExactLocationClusters(locations);
+    let showingClusteredPins = true;
     const maxCountrySubmissions = Math.max(1, ...countryCounts.values());
 
     document.getElementById("locationCount").textContent = locations.length;
@@ -708,19 +714,27 @@
       .height(window.innerHeight)
       .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-dark.jpg")
       .backgroundColor("#000")
-      .pointsData(locations)
+      .pointsData(activePointData())
       .pointLat("lat")
       .pointLng("lng")
-      .pointColor(() => "#ff7b00")
+      .pointColor(point => point.isCluster ? "#ffbf33" : "#ff7b00")
       .pointAltitude(0.06)
-      .pointRadius(0.55)
-      .ringsData(locations)
+      .pointRadius(pointRadius)
+      .ringsData(activePointData())
       .ringLat("lat")
       .ringLng("lng")
-      .ringColor(() => "orange")
+      .ringColor(point => point.isCluster ? "#ffbf33" : "orange")
       .ringMaxRadius(3)
       .ringPropagationSpeed(2)
       .ringRepeatPeriod(1000)
+      .labelsData(activeClusterLabels())
+      .labelLat("lat")
+      .labelLng("lng")
+      .labelText(point => String(point.clusterCount))
+      .labelAltitude(0.09)
+      .labelSize(0.42)
+      .labelColor(() => "#ffffff")
+      .labelDotRadius(0)
       .pathsData([])
       .pathPoints("points")
       .pathPointLat(point => point.lat)
@@ -729,14 +743,14 @@
       .pathColor(path => path.color)
       .pathStroke(path => path.stroke)
       .onPointClick(point => {
-        openLocationCard(point);
+        handlePointClick(point);
       })
       .onGlobeClick(coords => {
         if (!isMobile()) {
           return;
         }
 
-        const closestPoint = locations
+        const closestPoint = activePointData()
           .map(location => ({
             location,
             distance: globeDistanceDegrees(location, coords)
@@ -744,9 +758,11 @@
           .sort((a, b) => a.distance - b.distance)[0];
 
         if (closestPoint && closestPoint.distance < MOBILE_POINT_TAP_RADIUS_DEGREES) {
-          openLocationCard(closestPoint.location);
+          handlePointClick(closestPoint.location);
         }
       });
+
+    globe.controls().addEventListener("change", schedulePointClusteringUpdate);
 
     loadCountries();
 
@@ -758,7 +774,7 @@
 
       popup.innerHTML = `
         <img src="${point.photo}" alt="Photo from ${point.date}">
-        <div class="popup-content">
+          <div class="popup-content">
           <div class="popup-user">@${point.username}</div>
           <div class="popup-location">${point.date}</div>
         </div>
@@ -778,6 +794,108 @@
         { lat: point.lat, lng: point.lng, altitude: isMobile() ? 2.25 : 1.5 },
         isMobile() ? 650 : 1000
       );
+      setTimeout(updatePointClustering, isMobile() ? 670 : 1020);
+    }
+
+    function handlePointClick(point) {
+      if (point.isCluster) {
+        closePopup();
+        globe.pointOfView(
+          { lat: point.lat, lng: point.lng, altitude: isMobile() ? 1.35 : 1.15 },
+          700
+        );
+        setTimeout(updatePointClustering, 720);
+        return;
+      }
+
+      openLocationCard(point);
+    }
+
+    function activePointData() {
+      return showingClusteredPins ? clusteredLocations : locations;
+    }
+
+    function shouldClusterPins() {
+      const pointOfView = globe?.pointOfView?.();
+      const altitude = pointOfView?.altitude ?? (isMobile() ? 2.8 : 2.2);
+
+      return altitude > CLUSTER_ZOOM_ALTITUDE;
+    }
+
+    function updatePointClustering() {
+      const nextShowingClusteredPins = shouldClusterPins();
+
+      if (nextShowingClusteredPins === showingClusteredPins) {
+        globe.pointRadius(pointRadius);
+        return;
+      }
+
+      showingClusteredPins = nextShowingClusteredPins;
+      globe
+        .pointsData(activePointData())
+        .ringsData(activePointData())
+        .labelsData(activeClusterLabels())
+        .pointRadius(pointRadius);
+    }
+
+    function schedulePointClusteringUpdate() {
+      if (clusteringUpdateFrame) {
+        return;
+      }
+
+      clusteringUpdateFrame = requestAnimationFrame(() => {
+        clusteringUpdateFrame = null;
+        updatePointClustering();
+      });
+    }
+
+    function activeClusterLabels() {
+      return showingClusteredPins
+        ? clusteredLocations.filter(point => point.isCluster)
+        : [];
+    }
+
+    function pointRadius(point) {
+      if (point.isCluster) {
+        return 0.85;
+      }
+
+      const pointOfView = globe?.pointOfView?.();
+      const altitude = pointOfView?.altitude ?? (isMobile() ? 2.8 : 2.2);
+      const zoomProgress = Math.max(0, Math.min(1, (altitude - 0.75) / 1.25));
+
+      return MIN_POINT_RADIUS + (MAX_POINT_RADIUS - MIN_POINT_RADIUS) * zoomProgress;
+    }
+
+    function buildExactLocationClusters(items) {
+      const groups = new Map();
+
+      items.forEach(location => {
+        const key = `${Number(location.lat).toFixed(4)}|${Number(location.lng).toFixed(4)}`;
+
+        if (!groups.has(key)) {
+          groups.set(key, []);
+        }
+
+        groups.get(key).push(location);
+      });
+
+      return Array.from(groups.values()).flatMap(group => {
+        if (group.length === 1) {
+          return group;
+        }
+
+        const first = group[0];
+
+        return [{
+          ...first,
+          isCluster: true,
+          clusterCount: group.length,
+          clusterItems: group,
+          username: `${group.length} submissions`,
+          date: first.date
+        }];
+      });
     }
 
     function globeDistanceDegrees(a, b) {
