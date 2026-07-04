@@ -502,7 +502,7 @@
       {
         key: "somalia",
         name: "Somalia",
-        replaceExisting: true,
+        replaceExisting: false,
         url: "https://cdn.jsdelivr.net/gh/wmgeolab/geoBoundaries@main/releaseData/gbOpen/SOM/ADM0/geoBoundaries-SOM-ADM0_simplified.geojson"
       }
     ];
@@ -975,10 +975,11 @@
         );
         const mainCountryFeatures = (world.features || [])
           .filter(feature => allowedCountryKeys.has(countryKey(getFeatureName(feature))));
-        const supplementalFeatures = await loadSupplementalBoundaries();
+        const supplementalBoundaries = await loadSupplementalBoundaries();
+        const supplementalFeatures = supplementalBoundaries.flatMap(boundary => boundary.features);
         const replacedKeys = new Set(
-          SUPPLEMENTAL_BOUNDARIES
-            .filter(boundary => boundary.replaceExisting)
+          supplementalBoundaries
+            .filter(boundary => boundary.replaceExisting && boundary.features.length)
             .map(boundary => boundary.key)
         );
         const countryFeatures = [
@@ -1040,14 +1041,18 @@
 
           const geojson = await response.json();
 
-          return (geojson.features || []).map(feature => ({
-            ...feature,
-            properties: {
-              ...(feature.properties || {}),
-              __countryKey: boundary.key,
-              __countryName: boundary.name
-            }
-          }));
+          return {
+            key: boundary.key,
+            replaceExisting: boundary.replaceExisting,
+            features: (geojson.features || []).map(feature => ({
+              ...feature,
+              properties: {
+                ...(feature.properties || {}),
+                __countryKey: boundary.key,
+                __countryName: boundary.name
+              }
+            }))
+          };
         })
       );
 
