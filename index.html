@@ -540,17 +540,7 @@
       }
     ];
 
-    const fallbackLocations = [
-      {
-        lat: 59.33,
-        lng: 18.06,
-        username: "vic.eklund",
-        date: "Stockholm, Sweden, March 2026",
-        country: "Sweden",
-        photo: "https://www.dailyfaceoff.com/_next/image?url=https%3A%2F%2Fpublish.dailyfaceoff.com%2Fwp-content%2Fuploads%2F2025%2F06%2FSE5_3128-scaled.jpg&w=3840&q=75"
-      }
-    ];
-    let locations = fallbackLocations;
+    let locations = [];
 
     const popup = document.getElementById("popup");
     const imageViewer = document.getElementById("imageViewer");
@@ -742,20 +732,20 @@
       .height(window.innerHeight)
       .globeImageUrl("https://unpkg.com/three-globe/example/img/earth-dark.jpg")
       .backgroundColor("#000")
-      .pointsData(activePointData())
+      .pointsData([])
       .pointLat("lat")
       .pointLng("lng")
       .pointColor(point => point.isCluster ? "#ffbf33" : "#ff7b00")
       .pointAltitude(0.11)
       .pointRadius(pointRadius)
-      .ringsData(activePointData())
+      .ringsData([])
       .ringLat("lat")
       .ringLng("lng")
       .ringColor(point => point.isCluster ? "#ffbf33" : "orange")
       .ringMaxRadius(3)
       .ringPropagationSpeed(2)
       .ringRepeatPeriod(1000)
-      .labelsData(activeClusterLabels())
+      .labelsData([])
       .labelLat("lat")
       .labelLng("lng")
       .labelText(point => String(point.clusterCount))
@@ -919,8 +909,8 @@
           feedStatus.textContent = "No approved submissions loaded";
         }
       } catch (error) {
-        applyLocations(fallbackLocations);
-        feedStatus.textContent = "Using fallback data";
+        applyLocations([]);
+        feedStatus.textContent = "Submission feed unavailable";
       }
     }
 
