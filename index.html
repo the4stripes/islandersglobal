@@ -61,6 +61,16 @@
       font-size: 18px;
     }
 
+    #feedStatus {
+      display: none;
+      color: #bbb;
+      font-size: 12px;
+    }
+
+    body.debug-feed #feedStatus {
+      display: block;
+    }
+
     #countryPanel {
       position: absolute;
       top: 150px;
@@ -467,7 +477,7 @@
 
   <a
     id="submitButton"
-    href="https://forms.gle/DYGTmcUvaNHG6ask7"
+    href="https://forms.gle/3TdXDjDZNTPB9M8r8"
     target="_blank"
     rel="noopener noreferrer"
     title="Submit Photo"
@@ -484,7 +494,7 @@
 
   <script>
     const WORLD_GEOJSON_URL = "https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json";
-    const SUBMISSIONS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyh5mAaBcTr9glX987cLEx9MPIpzAmVVMsh6zAPKIHGLKJrIZJ-sGaBMLYMq3oHAKKi/exec";
+    const SUBMISSIONS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyNAtHwslk-GIoOMdJRba8Cv6Q1avEKsB7sXZON9cEJdGfyB9ggCjCPUmqFYBZ1AXF8/exec";
     const COUNTRY_LIST_URL = "https://cdn.jsdelivr.net/npm/world-countries@5/countries.json";
     const US_STATES_GEOJSON_URL = "https://cdn.jsdelivr.net/gh/codeforamerica/click_that_hood@master/public/data/united-states.geojson";
     const CANADA_SUBDIVISIONS_GEOJSON_URL = "https://cdn.jsdelivr.net/gh/codeforamerica/click_that_hood@master/public/data/canada.geojson";
@@ -551,6 +561,11 @@
     const countryBarFill = document.getElementById("countryBarFill");
     const subdivisionStatus = document.getElementById("subdivisionStatus");
     const feedStatus = document.getElementById("feedStatus");
+    const debugFeed = new URLSearchParams(window.location.search).get("debug") === "1";
+
+    if (debugFeed) {
+      document.body.classList.add("debug-feed");
+    }
 
     let hoveredCountry = null;
     let hoveredSubdivision = null;
@@ -1513,4 +1528,3 @@
   </script>
 </body>
 </html>
-
