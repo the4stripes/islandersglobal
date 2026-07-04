@@ -745,7 +745,7 @@
       .pointLat("lat")
       .pointLng("lng")
       .pointColor(point => point.isCluster ? "#ffbf33" : "#ff7b00")
-      .pointAltitude(0.09)
+      .pointAltitude(0.11)
       .pointRadius(pointRadius)
       .ringsData(activePointData())
       .ringLat("lat")
@@ -766,7 +766,7 @@
       .pathPoints("points")
       .pathPointLat(point => point.lat)
       .pathPointLng(point => point.lng)
-      .pathPointAlt(() => 0.055)
+      .pathPointAlt(() => 0.079)
       .pathColor(path => path.color)
       .pathStroke(path => path.stroke)
       .onPointClick(point => {
@@ -1284,12 +1284,16 @@
       }
 
       if (feature.properties?.__layer === "subdivision") {
-        return feature === hoveredSubdivision ? 0.052 : 0.036;
+        return feature === hoveredSubdivision ? 0.078 : 0.068;
       }
 
       const key = feature.properties?.__countryKey || countryKey(getFeatureName(feature));
 
-      return feature === hoveredCountry || key === selectedCountryKey ? 0.05 : 0.006;
+      if (key === selectedCountryKey) {
+        return 0.032;
+      }
+
+      return feature === hoveredCountry ? 0.05 : 0.006;
     }
 
     function countryCapColor(feature) {
