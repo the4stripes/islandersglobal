@@ -466,7 +466,7 @@
 
   <a
     id="submitButton"
-    href="YOUR_GOOGLE_FORM_LINK"
+    href="https://forms.gle/kxsKT7PUXgcmFd29A"
     target="_blank"
     rel="noopener noreferrer"
     title="Submit Photo"
@@ -483,6 +483,7 @@
 
   <script>
     const WORLD_GEOJSON_URL = "https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json";
+    const SUBMISSIONS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyh5mAaBcTr9glX987cLEx9MPIpzAmVVMsh6zAPKIHGLKJrIZJ-sGaBMLYMq3oHAKKi/exec";
     const COUNTRY_LIST_URL = "https://cdn.jsdelivr.net/npm/world-countries@5/countries.json";
     const US_STATES_GEOJSON_URL = "https://cdn.jsdelivr.net/gh/codeforamerica/click_that_hood@master/public/data/united-states.geojson";
     const CANADA_SUBDIVISIONS_GEOJSON_URL = "https://cdn.jsdelivr.net/gh/codeforamerica/click_that_hood@master/public/data/canada.geojson";
@@ -527,7 +528,7 @@
       }
     ];
 
-    const locations = [
+    const fallbackLocations = [
       {
         lat: 59.33,
         lng: 18.06,
@@ -537,6 +538,7 @@
         photo: "https://www.dailyfaceoff.com/_next/image?url=https%3A%2F%2Fpublish.dailyfaceoff.com%2Fwp-content%2Fuploads%2F2025%2F06%2FSE5_3128-scaled.jpg&w=3840&q=75"
       }
     ];
+    let locations = fallbackLocations;
 
     const popup = document.getElementById("popup");
     const imageViewer = document.getElementById("imageViewer");
@@ -670,15 +672,7 @@
       return location.date.split(",")[1]?.trim() || "";
     };
 
-    const countryCounts = locations.reduce((counts, location) => {
-      const key = countryKey(getLocationCountry(location));
-
-      if (key) {
-        counts.set(key, (counts.get(key) || 0) + 1);
-      }
-
-      return counts;
-    }, new Map());
+    let countryCounts = buildCountryCounts(locations);
 
     const getLocationSubdivision = location =>
       location.subdivision ||
@@ -688,21 +682,36 @@
       location.region ||
       "";
 
-    const subdivisionCounts = locations.reduce((counts, location) => {
-      const locationCountryKey = countryKey(getLocationCountry(location));
-      const subdivision = getLocationSubdivision(location);
+    function buildCountryCounts(items) {
+      return items.reduce((counts, location) => {
+        const key = countryKey(getLocationCountry(location));
 
-      if ((locationCountryKey === "united states" || locationCountryKey === "canada") && subdivision) {
-        const key = `${locationCountryKey}|${countryKey(subdivision)}`;
-        counts.set(key, (counts.get(key) || 0) + 1);
-      }
+        if (key) {
+          counts.set(key, (counts.get(key) || 0) + 1);
+        }
 
-      return counts;
-    }, new Map());
+        return counts;
+      }, new Map());
+    }
 
-    const clusteredLocations = buildExactLocationClusters(locations);
+    function buildSubdivisionCounts(items) {
+      return items.reduce((counts, location) => {
+        const locationCountryKey = countryKey(getLocationCountry(location));
+        const subdivision = getLocationSubdivision(location);
+
+        if ((locationCountryKey === "united states" || locationCountryKey === "canada") && subdivision) {
+          const key = `${locationCountryKey}|${countryKey(subdivision)}`;
+          counts.set(key, (counts.get(key) || 0) + 1);
+        }
+
+        return counts;
+      }, new Map());
+    }
+
+    let subdivisionCounts = buildSubdivisionCounts(locations);
+    let clusteredLocations = buildExactLocationClusters(locations);
     let showingClusteredPins = true;
-    const maxCountrySubmissions = Math.max(1, ...countryCounts.values());
+    let maxCountrySubmissions = Math.max(1, ...countryCounts.values());
 
     document.getElementById("locationCount").textContent = locations.length;
     document.getElementById("countryCount").textContent = countryCounts.size;
@@ -764,6 +773,7 @@
 
     globe.controls().addEventListener("change", schedulePointClusteringUpdate);
 
+    loadSubmissions();
     loadCountries();
 
     function openLocationCard(point) {
@@ -853,6 +863,71 @@
       return showingClusteredPins
         ? clusteredLocations.filter(point => point.isCluster)
         : [];
+    }
+
+    async function loadSubmissions() {
+      try {
+        const response = await fetch(SUBMISSIONS_WEB_APP_URL, { cache: "no-store" });
+
+        if (!response.ok) {
+          throw new Error("Submission feed did not load.");
+        }
+
+        const data = await response.json();
+        const sheetLocations = normalizeSubmissionData(data);
+
+        if (sheetLocations.length) {
+          applyLocations(sheetLocations);
+        }
+      } catch (error) {
+        applyLocations(fallbackLocations);
+      }
+    }
+
+    function normalizeSubmissionData(data) {
+      if (!Array.isArray(data)) {
+        return [];
+      }
+
+      return data
+        .map(item => ({
+          username: item.username || item.instagram || item.displayName || item.name || "Islanders fan",
+          city: item.city || "",
+          country: item.country || "",
+          subdivision: item.subdivision || item.state || item.province || item.territory || item.region || "",
+          date: item.date || item.displayLocation || item.location || "",
+          lat: Number(item.lat ?? item.latitude),
+          lng: Number(item.lng ?? item.longitude),
+          photo: item.photo || item.photoUrl || item.publicPhotoUrl || ""
+        }))
+        .filter(item => item.photo && Number.isFinite(item.lat) && Number.isFinite(item.lng));
+    }
+
+    function applyLocations(nextLocations) {
+      locations = nextLocations;
+      countryCounts = buildCountryCounts(locations);
+      subdivisionCounts = buildSubdivisionCounts(locations);
+      clusteredLocations = buildExactLocationClusters(locations);
+      maxCountrySubmissions = Math.max(1, ...countryCounts.values());
+      showingClusteredPins = shouldClusterPins();
+
+      document.getElementById("locationCount").textContent = locations.length;
+      document.getElementById("countryCount").textContent = countryCounts.size;
+
+      globe
+        .pointsData(activePointData())
+        .ringsData(activePointData())
+        .labelsData(activeClusterLabels())
+        .pointRadius(pointRadius);
+
+      refreshCountryHover();
+
+      if (selectedCountryKey) {
+        const count = countryCounts.get(selectedCountryKey) || 0;
+        const barWidth = Math.round((count / maxCountrySubmissions) * 100);
+        selectedCountryCount.textContent = pluralizeSubmission(count);
+        countryBarFill.style.width = `${barWidth}%`;
+      }
     }
 
     function pointRadius(point) {
@@ -1061,6 +1136,10 @@
     }
 
     function refreshCountryHover() {
+      if (!baseCountryFeatures.length && !selectedSubdivisionFeatures.length) {
+        return;
+      }
+
       globe
         .polygonAltitude(countryAltitude)
         .polygonCapColor(countryCapColor);
