@@ -489,6 +489,13 @@
     const MOBILE_POINT_TAP_RADIUS_DEGREES = 5;
     const MANUAL_PLACES = [
       {
+        name: "French Guiana",
+        key: "french guiana",
+        lat: 3.9339,
+        lng: -53.1258,
+        aliases: ["french guiana", "guyane", "guyane francaise"]
+      },
+      {
         name: "Kosovo",
         key: "kosovo",
         lat: 42.6026,
@@ -544,8 +551,10 @@
       "north korea": "korea, democratic people's republic of",
       "gaza": "palestine",
       "gaza strip": "palestine",
+      "guinea bissau": "guinea-bissau",
       "palestinian territories": "palestine",
       "palestinian territory": "palestine",
+      "somaliland": "somalia",
       "state of palestine": "palestine",
       "west bank": "palestine",
       "west bank and gaza": "palestine",
@@ -811,6 +820,24 @@
       return countryCounts.get(countryKey(name)) || 0;
     }
 
+    function getCountryDisplayName(name) {
+      const key = countryKey(name);
+
+      if (key === "palestine") {
+        return "Palestine";
+      }
+
+      if (key === "somalia") {
+        return "Somalia";
+      }
+
+      if (key === "guinea-bissau") {
+        return "Guinea-Bissau";
+      }
+
+      return name;
+    }
+
     function getSubdivisionCount(countryKeyValue, subdivisionName) {
       return subdivisionCounts.get(`${countryKeyValue}|${countryKey(subdivisionName)}`) || 0;
     }
@@ -825,11 +852,12 @@
       }
 
       const name = getFeatureName(feature);
+      const displayName = getCountryDisplayName(name);
       const count = getCountryCount(name);
 
       return `
         <div style="padding: 8px 10px; color: white; background: rgba(0, 0, 0, 0.82); border: 1px solid orange; border-radius: 8px;">
-          <strong style="color: orange;">${name}</strong><br>
+          <strong style="color: orange;">${displayName}</strong><br>
           ${pluralizeSubmission(count)}
         </div>
       `;
