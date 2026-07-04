@@ -912,17 +912,44 @@
       }
 
       return data
-        .map(item => ({
-          username: item.username || item.instagram || item.displayName || item.name || "Islanders fan",
-          city: item.city || "",
-          country: item.country || "",
-          subdivision: item.subdivision || item.state || item.province || item.territory || item.region || "",
-          date: item.date || item.displayLocation || item.location || "",
-          lat: Number(item.lat ?? item.latitude),
-          lng: Number(item.lng ?? item.longitude),
-          photo: item.photo || item.photoUrl || item.publicPhotoUrl || ""
-        }))
+        .map(item => {
+          const country = item.country || "";
+          const coordinates = normalizeCoordinates(
+            Number(item.lat ?? item.latitude),
+            Number(item.lng ?? item.longitude),
+            country
+          );
+
+          return {
+            username: item.username || item.instagram || item.displayName || item.name || "Islanders fan",
+            city: item.city || "",
+            country,
+            subdivision: item.subdivision || item.state || item.province || item.territory || item.region || "",
+            date: item.date || item.displayLocation || item.location || "",
+            lat: coordinates.lat,
+            lng: coordinates.lng,
+            photo: item.photo || item.photoUrl || item.publicPhotoUrl || ""
+          };
+        })
         .filter(item => item.photo && Number.isFinite(item.lat) && Number.isFinite(item.lng));
+    }
+
+    function normalizeCoordinates(lat, lng, country) {
+      if (Math.abs(lat) > 90 && Math.abs(lng) <= 90) {
+        return { lat: lng, lng: lat };
+      }
+
+      const key = countryKey(country);
+      const looksLikeSwappedNorthAmerica =
+        (key === "canada" || key === "united states") &&
+        lat < 0 &&
+        lng > 0;
+
+      if (looksLikeSwappedNorthAmerica) {
+        return { lat: lng, lng: lat };
+      }
+
+      return { lat, lng };
     }
 
     function applyLocations(nextLocations) {
