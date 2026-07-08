@@ -789,13 +789,13 @@
       .pointsData([])
       .pointLat("lat")
       .pointLng("lng")
-      .pointColor(point => point.isCluster ? "#ffbf33" : "#ff7b00")
+      .pointColor(() => "#ff7b00")
       .pointAltitude(0.11)
       .pointRadius(pointRadius)
       .ringsData([])
       .ringLat("lat")
       .ringLng("lng")
-      .ringColor(point => point.isCluster ? "#ffbf33" : "orange")
+      .ringColor(() => "orange")
       .ringMaxRadius(3)
       .ringPropagationSpeed(2)
       .ringRepeatPeriod(1000)
@@ -974,7 +974,7 @@
     }
 
     function activeClusterLabels() {
-      return clusteredLocations.filter(point => point.isCluster);
+      return [];
     }
 
     async function loadSubmissions() {
@@ -1198,10 +1198,6 @@
     }
 
     function pointRadius(point) {
-      if (point.isCluster) {
-        return 0.85;
-      }
-
       const pointOfView = globe?.pointOfView?.();
       const altitude = pointOfView?.altitude ?? (isMobile() ? 2.8 : 2.2);
       const zoomProgress = Math.max(0, Math.min(1, (altitude - 0.75) / 1.25));
@@ -1800,3 +1796,4 @@
   </script>
 </body>
 </html>
+
