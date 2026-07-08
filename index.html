@@ -251,6 +251,42 @@
       color: #ccc;
     }
 
+    .popup-header {
+      display: flex;
+      align-items: start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .popup-count {
+      flex: 0 0 auto;
+      color: #d9d9d9;
+      font-size: 13px;
+      line-height: 1.2;
+    }
+
+    .popup-nav {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .popup-nav button {
+      width: 34px;
+      height: 30px;
+      border: 1px solid rgba(255, 165, 0, 0.7);
+      border-radius: 999px;
+      background: rgba(255, 140, 0, 0.14);
+      color: white;
+      cursor: pointer;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .popup-nav button:hover {
+      background: rgba(255, 140, 0, 0.28);
+    }
+
     #imageViewer {
       position: fixed;
       inset: 0;
@@ -328,6 +364,10 @@
         border-radius: 18px;
       }
 
+      #popup.has-multiple {
+        height: 188px;
+      }
+
       #popup img {
         float: left;
         width: 38%;
@@ -352,6 +392,20 @@
         margin-top: 8px;
         font-size: 15px;
         line-height: 1.25;
+      }
+
+      .popup-count {
+        font-size: 11px;
+      }
+
+      .popup-nav {
+        margin-top: 9px;
+      }
+
+      .popup-nav button {
+        width: 30px;
+        height: 27px;
+        font-size: 18px;
       }
 
       body.popup-open #stats {
@@ -778,22 +832,60 @@
     loadSubmissions();
     loadCountries();
 
-    function openLocationCard(point) {
+    function escapeHtml(value) {
+      return String(value ?? "").replace(/[&<>"']/g, character => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      }[character]));
+    }
+
+    function openLocationCard(point, groupItems = [point], startIndex = 0) {
       ignoreNextDocumentClick = true;
       setTimeout(() => {
         ignoreNextDocumentClick = false;
       }, 0);
 
-      popup.innerHTML = `
-        <img src="${point.photo}" alt="Photo from ${point.date}">
-          <div class="popup-content">
-          <div class="popup-user">@${point.username}</div>
-          <div class="popup-location">${point.date}</div>
-        </div>
-      `;
+      const items = Array.isArray(groupItems) && groupItems.length ? groupItems : [point];
+      const current = items[startIndex] || point;
 
+      renderLocationCard(items, startIndex);
       popup.style.display = "block";
       document.body.classList.add("popup-open");
+
+      globe.pointOfView(
+        { lat: current.lat, lng: current.lng, altitude: isMobile() ? 2.25 : 1.5 },
+        isMobile() ? 650 : 1000
+      );
+      setTimeout(updatePointClustering, isMobile() ? 670 : 1020);
+    }
+
+    function renderLocationCard(items, index) {
+      const current = items[index];
+      const hasMultiple = items.length > 1;
+      const safePhoto = escapeHtml(current.photo);
+      const safeDate = escapeHtml(current.date);
+      const safeUsername = escapeHtml(current.username);
+
+      popup.className = hasMultiple ? "has-multiple" : "";
+      popup.innerHTML = `
+        <img src="${safePhoto}" alt="Photo from ${safeDate}">
+          <div class="popup-content">
+          <div class="popup-header">
+            <div class="popup-user">@${safeUsername}</div>
+            ${hasMultiple ? `<div class="popup-count">${index + 1} of ${items.length}</div>` : ""}
+          </div>
+          <div class="popup-location">${safeDate}</div>
+          ${hasMultiple ? `
+            <div class="popup-nav" aria-label="Submissions at this location">
+              <button type="button" data-card-step="-1" aria-label="Previous submission">&lsaquo;</button>
+              <button type="button" data-card-step="1" aria-label="Next submission">&rsaquo;</button>
+            </div>
+          ` : ""}
+        </div>
+      `;
 
       const popupImg = popup.querySelector("img");
       popupImg.addEventListener("click", () => {
@@ -802,21 +894,18 @@
         imageViewer.style.display = "flex";
       });
 
-      globe.pointOfView(
-        { lat: point.lat, lng: point.lng, altitude: isMobile() ? 2.25 : 1.5 },
-        isMobile() ? 650 : 1000
-      );
-      setTimeout(updatePointClustering, isMobile() ? 670 : 1020);
+      popup.querySelectorAll("[data-card-step]").forEach(button => {
+        button.addEventListener("click", event => {
+          event.stopPropagation();
+          const nextIndex = (index + Number(button.dataset.cardStep) + items.length) % items.length;
+          renderLocationCard(items, nextIndex);
+        });
+      });
     }
 
     function handlePointClick(point) {
       if (point.isCluster) {
-        closePopup();
-        globe.pointOfView(
-          { lat: point.lat, lng: point.lng, altitude: isMobile() ? 1.35 : 1.15 },
-          700
-        );
-        setTimeout(updatePointClustering, 720);
+        openLocationCard(point.clusterItems[0], point.clusterItems);
         return;
       }
 
@@ -847,7 +936,7 @@
     }
 
     function activePointData() {
-      return showingClusteredPins ? clusteredLocations : locations;
+      return clusteredLocations;
     }
 
     function shouldClusterPins() {
@@ -885,9 +974,7 @@
     }
 
     function activeClusterLabels() {
-      return showingClusteredPins
-        ? clusteredLocations.filter(point => point.isCluster)
-        : [];
+      return clusteredLocations.filter(point => point.isCluster);
     }
 
     async function loadSubmissions() {
